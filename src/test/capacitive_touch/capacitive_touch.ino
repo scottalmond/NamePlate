@@ -12,6 +12,7 @@
 //ID number
 //max led brightness
 //thermal monitoring
+//verify population of hall effect and brightness inputs
 
 
 //Step 2. Tools >> Manage Libraries... >> "capacitivesensor" by Paul Bagder v0.5.1
