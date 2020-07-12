@@ -3,4 +3,5 @@
   (lib (name microUSB)(type KiCad)(uri ${KIPRJMOD}/lib/10118194-0001LF)(options "")(descr ""))
   (lib (name PTC)(type KiCad)(uri ${KIPRJMOD}/lib/ptc)(options "")(descr ""))
   (lib (name TC33X-2-103E)(type KiCad)(uri ${KIPRJMOD}/lib/TC33X-2-103E)(options "")(descr ""))
+  (lib (name DS05-127-2-04BK-SMT-TR)(type KiCad)(uri ${KIPRJMOD}/lib/DS05-127-2-04BK-SMT-TR)(options "")(descr ""))
 )

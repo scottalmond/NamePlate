@@ -100,10 +100,10 @@ NoConn ~ 4900 7300
 Text Notes 7000 6450 0    50   ~ 0
 Note: 2018 Attiny3216/1616 data sheet lists 6 PTC in pinout table, but coversheet adverttises 12.\nUse latest Attiny3216/3217 ref:\nhttp://ww1.microchip.com/downloads/en/DeviceDoc/ATtiny3216-17-DataSheet-DS40002205A.pdf
 $Comp
-L Mechanical:Fiducial FID1
+L Mechanical:Fiducial F1
 U 1 1 5F0CEAAB
 P 6200 7250
-F 0 "FID1" H 6285 7296 50  0000 L CNN
+F 0 "F1" H 6285 7296 50  0000 L CNN
 F 1 "Fiducial" H 6285 7205 50  0000 L CNN
 F 2 "Fiducial:Fiducial_1mm_Mask2mm" H 6200 7250 50  0001 C CNN
 F 3 "~" H 6200 7250 50  0001 C CNN
@@ -314,7 +314,6 @@ Text GLabel 2400 6000 0    50   Input ~ 0
 PTC
 NoConn ~ 2500 6950
 NoConn ~ 2500 7050
-NoConn ~ 2500 7150
 NoConn ~ 2500 7450
 $Comp
 L power:GND #PWR0106
@@ -777,7 +776,7 @@ F 3 "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf" H 2350 4375 50  0001 
 	1    2250 4750
 	-1   0    0    1   
 $EndComp
-Text GLabel 10650 3300 2    50   Input ~ 0
+Text GLabel 10750 3700 2    50   Input ~ 0
 LED_ROW0
 $Comp
 L power:+5V #PWR025
@@ -848,9 +847,6 @@ Wire Wire Line
 	9750 2200 9750 2400
 NoConn ~ 10350 4000
 NoConn ~ 10350 3600
-NoConn ~ 10350 3200
-NoConn ~ 10350 3100
-NoConn ~ 10350 3000
 NoConn ~ 10350 2700
 NoConn ~ 9150 3500
 NoConn ~ 9150 3600
@@ -859,13 +855,13 @@ NoConn ~ 9150 3800
 $Comp
 L Device:R R1
 U 1 1 5F0CEC00
-P 10500 3300
-F 0 "R1" V 10293 3300 50  0000 C CNN
-F 1 "470R" V 10384 3300 50  0000 C CNN
-F 2 "Resistor_SMD:R_0805_2012Metric" V 10430 3300 50  0001 C CNN
-F 3 "~" H 10500 3300 50  0001 C CNN
-	1    10500 3300
-	0    1    1    0   
+P 10700 3500
+F 0 "R1" V 10493 3500 50  0000 C CNN
+F 1 "470R" V 10584 3500 50  0000 C CNN
+F 2 "Resistor_SMD:R_0805_2012Metric" V 10630 3500 50  0001 C CNN
+F 3 "~" H 10700 3500 50  0001 C CNN
+	1    10700 3500
+	-1   0    0    1   
 $EndComp
 $Comp
 L MCU_Microchip_ATtiny:ATtiny3216-S U1
@@ -2213,4 +2209,69 @@ F 3 "~" H 3500 6300 50  0001 C CNN
 	1    3500 6300
 	0    1    1    0   
 $EndComp
+$Comp
+L DS05-127-2-04BK-SMT-TR:DS05-127-2-04BK-SMT-TR S1
+U 1 1 5F52CB4C
+P 10100 5500
+F 0 "S1" H 10100 6049 50  0000 C CNN
+F 1 "DS05-127-2-04BK-SMT-TR" H 10100 5958 50  0000 C CNN
+F 2 "SW_DS05-127-2-04BK-SMT-TR" H 10100 5500 50  0001 L BNN
+F 3 "V0.0" H 10100 5500 50  0001 L BNN
+F 4 "Manufacturer Recommendations" H 10100 5500 50  0001 L BNN "Field4"
+F 5 "2.60 mm" H 10100 5500 50  0001 L BNN "Field5"
+F 6 "CUI Inc." H 10100 5500 50  0001 L BNN "Field6"
+	1    10100 5500
+	1    0    0    -1  
+$EndComp
+Text GLabel 2500 7150 0    50   Input ~ 0
+USB_UPDI
+Text GLabel 9800 5200 0    50   Input ~ 0
+USB_UPDI
+Text GLabel 10400 5200 2    50   Input ~ 0
+UPDI_DATA
+$Comp
+L power:GND #PWR0226
+U 1 1 5F541CCE
+P 10500 5850
+F 0 "#PWR0226" H 10500 5600 50  0001 C CNN
+F 1 "GND" H 10505 5677 50  0000 C CNN
+F 2 "" H 10500 5850 50  0001 C CNN
+F 3 "" H 10500 5850 50  0001 C CNN
+	1    10500 5850
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	10500 5850 10500 5800
+Wire Wire Line
+	10500 5400 10400 5400
+Wire Wire Line
+	10400 5600 10500 5600
+Connection ~ 10500 5600
+Wire Wire Line
+	10500 5600 10500 5400
+Wire Wire Line
+	10400 5800 10500 5800
+Connection ~ 10500 5800
+Wire Wire Line
+	10500 5800 10500 5600
+Text GLabel 9800 5400 0    50   Input ~ 0
+SW1
+Text GLabel 9800 5600 0    50   Input ~ 0
+SW2
+Text GLabel 9800 5800 0    50   Input ~ 0
+SW3
+Wire Wire Line
+	10700 3350 10700 3300
+Wire Wire Line
+	10700 3300 10350 3300
+Wire Wire Line
+	10750 3700 10700 3700
+Wire Wire Line
+	10700 3700 10700 3650
+Text GLabel 10350 3000 2    50   Input ~ 0
+SW1
+Text GLabel 10350 3100 2    50   Input ~ 0
+SW2
+Text GLabel 10350 3200 2    50   Input ~ 0
+SW3
 $EndSCHEMATC

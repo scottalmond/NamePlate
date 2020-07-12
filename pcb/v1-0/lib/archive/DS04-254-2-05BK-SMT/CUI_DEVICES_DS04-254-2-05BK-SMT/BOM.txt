@@ -1,0 +1,3 @@
+3DX_CUI_DEVICES_Supplier: CUI Devices
+3DX_CUI_DEVICES_Description: 5 Pole, Flat Actuator, Flat Bottom, SMT Pin, DIP Switch
+3DX_CUI_DEVICES_Model Number: DS04-254-2-05BK-SMT
