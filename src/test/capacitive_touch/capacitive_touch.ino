@@ -13,6 +13,13 @@
 //max led brightness
 //thermal monitoring
 //verify population of hall effect and brightness inputs
+//eeprom read last chapter displayed
+//voltage monitoring
+
+//switches:
+//user input lockout
+//rate of change: daily/never
+//config: single vs multiple displays
 
 
 //Step 2. Tools >> Manage Libraries... >> "capacitivesensor" by Paul Bagder v0.5.1

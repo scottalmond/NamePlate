@@ -314,7 +314,6 @@ Text GLabel 2400 6000 0    50   Input ~ 0
 PTC
 NoConn ~ 2500 6950
 NoConn ~ 2500 7050
-NoConn ~ 2500 7450
 $Comp
 L power:GND #PWR0107
 U 1 1 5F0CEB6F
@@ -2269,13 +2268,19 @@ Wire Wire Line
 Wire Wire Line
 	10700 3700 10700 3650
 Text GLabel 10350 3000 2    50   Input ~ 0
-SW1
+SW3
 Text GLabel 10350 3100 2    50   Input ~ 0
 SW2
 Text GLabel 10350 3200 2    50   Input ~ 0
-SW3
+SW1
 Text Notes 9850 4800 0    50   ~ 0
 DIP Switches
 Wire Notes Line
 	11200 4550 9000 4550
+NoConn ~ 3500 6850
+NoConn ~ 3500 6950
+NoConn ~ 3500 7050
+NoConn ~ 3500 7300
+NoConn ~ 3500 7400
+NoConn ~ 3500 7500
 $EndSCHEMATC
