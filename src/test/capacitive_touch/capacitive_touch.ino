@@ -15,6 +15,7 @@
 //verify population of hall effect and brightness inputs
 //eeprom read last chapter displayed
 //voltage monitoring
+//eeprom: is_first_boot state (extended test patterns in this mode
 
 //switches:
 //user input lockout
