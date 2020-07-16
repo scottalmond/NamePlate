@@ -16,8 +16,8 @@ The user can adjust the brightness of the unit through a potentiometer.  A Perip
 
 ## PCB
 
-[[\pcb\v1-0\cca_front.png]]
-[[\pcb\v1-0\cca_back.png]]
+![CCA Front](https://github.com/scottalmond/NamePlate/blob/master/pcb/v1-0/cca_front.png)
+![CCA Back](https://github.com/scottalmond/NamePlate/blob/master/pcb/v1-0/cca_back.png)
 
 ## Case
 
