@@ -16,6 +16,7 @@
 //eeprom read last chapter displayed
 //voltage monitoring
 //eeprom: is_first_boot state (extended test patterns in this mode
+//internal voltage monitor - try to detect brown out?
 
 //switches:
 //user input lockout
