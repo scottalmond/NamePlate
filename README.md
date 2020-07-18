@@ -14,6 +14,10 @@ The user can adjust the brightness of the unit through a potentiometer.  A Perip
 
 # Constituent Components
 
+## Bill of Materials
+
+
+
 ## PCB
 
 ![CCA Front](https://github.com/scottalmond/NamePlate/blob/master/pcb/v1-0/cca_front.png)
@@ -65,3 +69,5 @@ Multiple PCBs can be linked together to produce a larger display.
 # TODO
 
 Add area for writing in owner name on PCB, for tracking units through development (if code differs)
+Add CC BY 4.0 license to schematic
+

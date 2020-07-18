@@ -39,3 +39,39 @@ delta 0.38
 rows 0 and 2 rotated 180
 
 0.38 per LED hori
+
+-- case
+
+PCB: 1.6 x 10"
+outline +- 0.15 mm --> 0.006"
+
+1.6+.006+.006 = 1.612
+round up to 50 mil
+1.65 inner
+1.7 outer
+
+same horizontally
+10.05 inner
+10.1 outer
+
+.15 cut on PCB
+
+10.72 hole
+1.28 hole
+9.44" apart
+
+40 threads per inch on 4-40
+5 threads engaged minimum
+0.125" plastic
+
+also allow 50 mil error on height
+
+4-40 hole size
+https://learn.sparkfun.com/tutorials/getting-started-with-3d-printing-using-tinkercad/taking-measurements
+
+consider heat set inserts for repeated insertion/extraction of thumb screws
+
+screw into cubicle wall with something on the order of #2 gauge 1/4"?
+https://titleplates.com/resources/attaching-nameplates.html
+
+consider for how to get cabling out of rear
