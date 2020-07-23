@@ -29,25 +29,54 @@ The user can adjust the brightness of the unit through a potentiometer.  A Perip
 
 ## Face Plate
 
-# User Input
+## Programmer
+
+Direct referenced from: http://www.technoblogy.com/show?2OCH
+
+- Install ElTangas's jtag2updi on Arduino Uno, Duemilanova or equivalent ATmega328p.  -- Details for making UPDI programmer: https://github.com/SpenceKonde/megaTinyCore/blob/master/MakeUPDIProgrammer.md
+-- Use pin PD6 for UPDI I/O
+- Install Spence Konde's megaTinyCore in the Arduino IDE
+-- Instructions: https://github.com/SpenceKonde/megaTinyCore/blob/master/Installation.md
+-- add to additional board URLs: http://drazzy.com/package_drazzy.com_index.json
+-- boards manager add: "megaTinyCore" v2.0.5
+- Upload settings:
+-- Processor: ATtiny3216
+-- 4.2 V BOD
+-- 16 MHz
+-- Programmer: jtag2updi
+
+J8:
+Pin 1: UPDI
+Pin 2: +5V
+Pin 6: GND
+
+## Processor
+
+doc: http://ww1.microchip.com/downloads/en/DeviceDoc/ATtiny3216-17-DataSheet-DS40002205A.pdf
+
+# Periphreals
 
 ## DC Power
 
 Note that this unit can sink substancial current.  It is recommended to power the unit with a 5V USB adapter capable of sourcing 2 Amps or more.
 
-## Touch Button
+## LEDs [PA7]
+
+
+
+## Touch Button [PB0]
 
 Touching and releasing the very upper-left corner of the device for nominally 0.5 seconds will register a tap.  The unit will transition  between display patterns.
 
-## Hall effect sensor
+## Hall effect sensor [PA3]
 
 Place a fridge or hard drive magnet just above the USB port.  This will activate <TBD function - implemented as fallback if PTC was problematic>
 
-## Potentiometer
+## Brightness Potentiometer [PA2]
 
 Uncover the circuit board by removing the two thumb screws on either side of the faceplate.  Rotate the Philips potentiometer at the bottom left of the unit CW (?) to increase brightness.
 
-## DIP Switch Settings
+## DIP Switch Settings [PA6, PA5, PA4]
 
 Position 1:
 Set to "OFF" to allow the displayed pattern to automaically update daily.  Set to "ON" to hold the currrently displayed pattern indefinitely.
@@ -61,7 +90,7 @@ Set to "ON" to enable diagnostic mode to allow verification and troublshooting o
 Position 4:
 Set to "ON" to connect the ID pin of the microUSB port to to the UPDI pin on the micro controller.  This is used for programming of the device without removing the circuit board from the casing.  "OFF" is normal operation.
 
-# Collaboration Mode
+# Collaboration Mode [PxD: PB2, RxD: PB3]
 
 Multiple PCBs can be linked together to produce a larger display.  
 <TBR>
@@ -70,4 +99,20 @@ Multiple PCBs can be linked together to produce a larger display.
 
 Add area for writing in owner name on PCB, for tracking units through development (if code differs)
 Add CC BY 4.0 license to schematic
-
+add year produced to PCB
+>>> allow for batteyr power and power switch
+>>> consider accel and swinging unit to create persistence of vision text display
+add schematic links to readme.md
+get solder paste with thinner tip
+*** move micro USB header - difficult to reach for rework with config switches behind it
+note: LED is N/C in layout - why not flagged in DRc...?
+b/c omitted connection in schematic due to copy-paste omission...
+***fix D60 connection to 5V in next rev
+-- run DRC in schematic too...
+note: screw reads ~4V on delivery
+magnet stuck at 0.87V despite exposure to hard drive magnet...
+tried with pullup, still rigid at 0.87V
+part is hot to the touch
+note, the schematic part is AH1806 (hall switch) which has different pinout
+- used this footprint because no footprint was supplied by vendor
+*** next rev to swap pins 2 and 3

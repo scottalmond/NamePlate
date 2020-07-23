@@ -2068,4 +2068,17 @@ F 3 "" H 1500 5600 50  0001 C CNN
 	1    1500 5600
 	1    0    0    -1  
 $EndComp
+$Comp
+L power:+5V #PWR?
+U 1 1 5F193215
+P 7900 1850
+AR Path="/5F0AD215/5F193215" Ref="#PWR?"  Part="1" 
+AR Path="/5F1120A6/5F193215" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 7900 1700 50  0001 C CNN
+F 1 "+5V" H 7915 2023 50  0000 C CNN
+F 2 "" H 7900 1850 50  0001 C CNN
+F 3 "" H 7900 1850 50  0001 C CNN
+	1    7900 1850
+	1    0    0    -1  
+$EndComp
 $EndSCHEMATC
