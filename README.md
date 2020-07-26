@@ -104,10 +104,10 @@ add year produced to PCB
 >>> consider accel and swinging unit to create persistence of vision text display
 add schematic links to readme.md
 get solder paste with thinner tip
-*** move micro USB header - difficult to reach for rework with config switches behind it
+*** move micro USB header - difficult to reach for rework with config switches behind it (layout design issue)
 note: LED is N/C in layout - why not flagged in DRc...?
 b/c omitted connection in schematic due to copy-paste omission...
-***fix D60 connection to 5V in next rev
+***fix D60 connection to 5V in next rev (schematic DRC issue)
 -- run DRC in schematic too...
 note: screw reads ~4V on delivery
 magnet stuck at 0.87V despite exposure to hard drive magnet...
@@ -115,4 +115,11 @@ tried with pullup, still rigid at 0.87V
 part is hot to the touch
 note, the schematic part is AH1806 (hall switch) which has different pinout
 - used this footprint because no footprint was supplied by vendor
-*** next rev to swap pins 2 and 3
+*** next rev to swap pins 2 and 3 (schematic footprint issue)
+consider testability point for EVERY IO
+in user guide, include diagrams of expected UI screen output, ref 11.7V battery charger manual
+include build number in start up script
+compare findings on this CCA vs pendant which had button rotate 90 degrees (schematic footprint issue) and traces too close to holes (layout issue)
+
+
+

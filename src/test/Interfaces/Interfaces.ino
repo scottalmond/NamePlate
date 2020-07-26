@@ -36,6 +36,7 @@ const byte LED_COUNT=96;
 //future: consider combination of LED_COUNT, millis() and micros() to compensate for the microseconds needed
 neoPixelType STRIP_TYPE=NEO_GRBW + NEO_KHZ800;
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(LED_COUNT, PIN_LED, STRIP_TYPE);
+const byte DEFAULT_BRIGHTNESS=255;
 
 const byte PIN_TOUCH=PIN_PB0;//periphreal touch controller button
 const byte PIN_MAGNET=PIN_PA3;
@@ -53,17 +54,81 @@ void setup() {
   pinMode(PIN_CONFIG_DIAGNOSTIC,INPUT_PULLUP);
   pinMode(PIN_CONFIG_TESSELLATE,INPUT_PULLUP);
   strip.begin();
-  strip.setBrightness(4);
+  strip.setBrightness(DEFAULT_BRIGHTNESS);
   strip.clear();
+  strip.show();
+
+  //setupTouch();
 }
 
 // the loop function runs over and over again forever
 void loop() {
-  //testLED0(true);
+  testLED0(true);
   //testStripWhite();
-  testStripCounter();
+  //testStripCounter();
   //testMagnet();
   //testBrightness();
+  //testSwitches();
+  //testTouch();
+}
+
+//touch: https://github.com/xukangmin/TinyCore
+//https://hackaday.io/project/167436-3-tiny-arduino-alternative-board
+
+void setupTouch()
+{
+  pinMode(PIN_TOUCH,INPUT);
+}
+
+//ADCTouch library is built for avr, but megaavr is used here
+word readings[LED_COUNT];
+void testTouch()
+{
+  //displayDebug(analogRead(PIN_TOUCH)*((LED_COUNT*1.0)/1024.0));
+  //pinMode(PIN_TOUCH,INPUT);//_PULLUP);
+  pinMode(PIN_TOUCH,OUTPUT);
+  digitalWrite(PIN_TOUCH,LOW);
+  pinMode(PIN_TOUCH,INPUT);//_PULLUP);
+  getReadings();
+  //pinMode(PIN_TOUCH,OUTPUT);
+  //digitalWrite(PIN_TOUCH,LOW);
+  for(byte iter=0;iter<LED_COUNT;iter++)
+  {
+    strip.setPixelColor(iter, getColorFromAnalogReading(readings[iter]));
+  }
+  strip.show();
+  //delay(1000);
+}
+
+void getReadings()
+{
+  for(byte iter=0;iter<LED_COUNT;iter++)
+  {
+    readings[iter]=analogRead(PIN_TOUCH);
+  }
+}
+
+uint32_t getColorFromAnalogReading(word reading)
+{//0 to half is green to zero.  helf to full is zero to full red
+  int green=reading>=512?0:(512-reading);//green is 5V
+  int red=reading<512?0:(reading-512);///red is GND
+  green=green/2;
+  red=red/2;
+  green=(green*green)/256;
+  red=(red*red)/256;
+  return strip.Color(green,red,0,0);
+}
+
+void displayDebug(byte val)
+{
+  for(byte iter=0;iter<LED_COUNT;iter++)
+  {
+    bool is_green=iter<val;
+    //bool is_yellow=iter<((val+1));
+    bool is_red=!is_green;
+    strip.setPixelColor(iter, strip.Color(is_red?255:0,is_green?255:0,0,0));
+  }
+  strip.show();
 }
 
 void testLED0(bool isShow)
@@ -105,7 +170,7 @@ void testStripCounter()
 void testMagnet()
 {
   strip.clear();
-  for(byte iter=0;iter<readMagnetism()/4;iter++)
+  for(byte iter=0;iter<(readMagnetism()*(96.0/1024.0));iter++)
   {
     strip.setPixelColor(iter, strip.Color(0,0,0,255));
   }
@@ -124,7 +189,11 @@ void testBrightness()
 
 void testSwitches()
 {
-  
+  strip.clear();
+  strip.setPixelColor(0, strip.Color(isUpdateDaily()   ?0:255,isUpdateDaily()   ?255:0,0,0));
+  strip.setPixelColor(1, strip.Color(isDiagnosticMode()?0:255,isDiagnosticMode()?255:0,0,0));
+  strip.setPixelColor(2, strip.Color(isTessellateMode()?0:255,isTessellateMode()?255:0,0,0));
+  strip.show();
 }
 
 //read the 10-bit ADC to get analog measurements: brightness configuration and magnet
@@ -135,4 +204,4 @@ word readBrightness(){ return analogRead(PIN_BRIGHTNESS); }//getBrightness is al
 //read config settings
 bool isUpdateDaily(){    return digitalRead(PIN_CONFIG_UPDATE_DAILY); }
 bool isDiagnosticMode(){ return digitalRead(PIN_CONFIG_DIAGNOSTIC);   }
-bool isTessellateMOde(){ return digitalRead(PIN_CONFIG_TESSELLATE);   }
+bool isTessellateMode(){ return digitalRead(PIN_CONFIG_TESSELLATE);   }
