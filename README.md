@@ -121,5 +121,12 @@ in user guide, include diagrams of expected UI screen output, ref 11.7V battery 
 include build number in start up script
 compare findings on this CCA vs pendant which had button rotate 90 degrees (schematic footprint issue) and traces too close to holes (layout issue)
 consider swapping hall effect sensor and brightness - allow greater accessibility to magnetic input
-note:0.37" from LED-surface to top of programming header
-
+note:0.37" from LED-surface to top of programming header [note: 0.38" per data sheet, erxcluding solder]
+contiguous undervolt - dim screen brighntess (LiPo response to dropping voltage)
+min stackup (NO 1/16" acry): pcb 1.6 mm/0.063", 100 mil UPDI: 0.37", 0.125" acrylic face, 0.05" margin: 0.608"
+max stackup (NO 1/16" acry): [5 turns 4-40 is 0.1250"] [50 mil backing], 200 mil standoff, 0.608" from above: 0.808"
+min w/ 1/16 acry: 0.63+ above = 0.671"
+max w/ 1/16 acry: 0.63+ above = 0.871"
+note: thumb screw head 11/64" thick BEYOND base length above
+0.75" is max length fully threaded.  next step up is 1"
+note: head diameter on thumb screw is 5/16"
