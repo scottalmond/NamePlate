@@ -120,6 +120,6 @@ consider testability point for EVERY IO
 in user guide, include diagrams of expected UI screen output, ref 11.7V battery charger manual
 include build number in start up script
 compare findings on this CCA vs pendant which had button rotate 90 degrees (schematic footprint issue) and traces too close to holes (layout issue)
-
-
+consider swapping hall effect sensor and brightness - allow greater accessibility to magnetic input
+note:0.37" from LED-surface to top of programming header
 

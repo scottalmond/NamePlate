@@ -8,6 +8,8 @@
  #include <avr/power.h> // Required for 16 MHz Adafruit Trinket
 #endif
 
+#include <EEPROM.h>
+
 // -- Top Level IO --
 const byte PIN_LED=PIN_PA7;//D1 is physical pin 6
 const byte LED_ROWS=4;
@@ -16,6 +18,20 @@ const byte LED_COUNT=LED_ROWS*LED_COLS;//note: max 255 LEDs in byte
 neoPixelType STRIP_TYPE=NEO_GRBW + NEO_KHZ800;
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(LED_COUNT, PIN_LED, STRIP_TYPE);
 const byte DEFAULT_BRIGHTNESS=16;
+const byte MIN_BRIGHTNESS=4;
+const byte MAX_BRIGHTNESS=255;
+const byte BOOT_CHAPTER_EEPROM_ADDRESS=0;
+const byte ANALOG_AVERAGE=32;//number of user input brightness readings to average to form final displayed brightness
+//PRECON: BRIGHTNESS_AVERAGE readings will be taken before exiting from boot.  Otherwise brightness will
+//default to less and display may appear dim or black
+byte brightness_index=0;//index of the next brightness reading.
+word brightness_measurements[ANALOG_AVERAGE];
+const byte MAGNET_THRESHOLD=16;//counts (LSB = 5V/1024) that the
+//magnetic measurement needs to change from the boot-up value before a user command is registered
+int magnetic_average=0;//average magnetic reading, calibrated at boot up
+const word MAGNET_STATE_CHANGE_MS=512;//collect user input for this long before changing state
+unsigned long magnet_timestamp_ms=0;//time the user started changing the device state
+byte magnet_previous_state=0;//state that the user is trying to update the device to
 
 // -- User IO --
 const byte PIN_TOUCH=PIN_PB0;//periphreal touch controller button
@@ -31,22 +47,24 @@ const byte PIN_CONFIG_TESSELLATE=PIN_PA4;//SW4 on DIP switch
 //followed by reading page after page (frame render) in each chapter "loop()"
 #define CHAPTER_ERROR 254
 #define CHAPTER_STRIP_TEST 255
-#define CHAPTER_MONOCHROME 19
-#define CHAPTER_RAINBOW 18
-#define CHAPTER_SCATTER_BLINK 9
-#define CHAPTER_MATRIX_RAIN 10 //either too fast or all rows the same
-#define CHAPTER_SNAKE 15 // consider refactor with multiple snake - white background washes out snake.  also see issue with snake going over its own tail
-#define CHAPTER_INTERFERENCE 3
-#define CHAPTER_FLAG_AMERICAN 8 // also flash read and blue parts - looks like unit is defective though...
-#define CHAPTER_FIREWORKS 0//13
-#define CHAPTER_PORTAL 11
-#define CHAPTER_WATER 14//slowly cycling and shimmering water effect 
-#define CHAPTER_NEWTON_CRADLE 20
-const byte LAST_CHAPTER=CHAPTER_INTERFERENCE;//highest indexed chapter in the book
+#define CHAPTER_MONOCHROME 0
+#define CHAPTER_RAINBOW 1
+#define CHAPTER_SCATTER_BLINK 2
+#define CHAPTER_FIREWORKS 3//13
+#define CHAPTER_MATRIX_RAIN 4 //either too fast or all rows the same
+#define CHAPTER_SNAKE 5 // consider refactor with multiple snake - white background washes out snake.  also see issue with snake going over its own tail
+#define CHAPTER_INTERFERENCE 6
+#define CHAPTER_FLAG_AMERICAN 7 // also flash read and blue parts - looks like unit is defective though...
+#define CHAPTER_PORTAL 8
+#define CHAPTER_WATER 9//slowly cycling and shimmering water effect 
+#define CHAPTER_NEWTON_CRADLE 10
+#define CHAPTER_CHRISTMAS 11
+const byte LAST_CHAPTER=CHAPTER_CHRISTMAS;//highest indexed chapter in the book
 byte chapter_id=CHAPTER_STRIP_TEST; //set to 255 to run LED check at boot, set to 0 to skip
 bool is_go_to_new_chapter=false;//private flag used for tracking state change to new chapter
-unsigned long timestamp_ms=0;//used for various chapter state machines.  Note wrap over after ~50 days
+unsigned long chapter_timestamp_ms=0;//used for various chapter state machines.  Note wrap over after ~50 days
 byte led_state[LED_ROWS][LED_COLS];//general-purpose state machine allocation for all chapters to share
+unsigned long book_frame_number=0;//number of iterations through the current loop
 
 // -- Chapter --
 // - Snake - 
@@ -57,6 +75,8 @@ byte snake_dir=B00000100;//8 bit array: lowest 4 bits are previous direction MSB
 
 void setup() {
   pinMode(PIN_LED, OUTPUT);
+  pinMode(PIN_MAGNET,INPUT);
+  pinMode(PIN_BRIGHTNESS,INPUT);
   pinMode(PIN_CONFIG_UPDATE_DAILY,INPUT_PULLUP);
   pinMode(PIN_CONFIG_DIAGNOSTIC,INPUT_PULLUP);
   pinMode(PIN_CONFIG_TESSELLATE,INPUT_PULLUP);
@@ -64,7 +84,9 @@ void setup() {
   strip.setBrightness(DEFAULT_BRIGHTNESS);
   strip.clear();
   strip.show();
-  timestamp_ms=millis();
+  chapter_timestamp_ms=millis();
+  setupMagnet();
+  setupMagnet();//second run to allow analog to settle after LED write (not sure if value-added, but is quick to execute)
 }
 
 //state machine that executes every frame of the animation:
@@ -72,32 +94,27 @@ void setup() {
 //2. flush frame buffer to LEDs
 //3. update the chapter if the current chapter has finsihed or if the user provides input
 void loop() {
-  bool is_done=false;
+  bool is_booted=false;
   switch(chapter_id)
   {//note the order the chapters are executed is determined by the value of the globally defined constants, not the order in this switch case
-    case CHAPTER_STRIP_TEST: is_done=strip_test(is_go_to_new_chapter); break;
+    case CHAPTER_STRIP_TEST: is_booted=strip_test(is_go_to_new_chapter); break;
     case CHAPTER_MONOCHROME: monochrome(is_go_to_new_chapter); break;
     case CHAPTER_RAINBOW: rainbow(is_go_to_new_chapter); break;
     case CHAPTER_SCATTER_BLINK: scatter_blink(is_go_to_new_chapter); break;
     case CHAPTER_SNAKE: snake(is_go_to_new_chapter); break;
     //case CHAPTER_INTERFERENCE: interference(is_go_to_new_chapter); break;
-    case CHAPTER_MATRIX_RAIN: matrix_rain(is_go_to_new_chapter); break;
+    case CHAPTER_MATRIX_RAIN: matrix_rain(is_go_to_new_chapter,book_frame_number); break;
     case CHAPTER_FLAG_AMERICAN: flag_american(is_go_to_new_chapter); break;
     case CHAPTER_FIREWORKS: fireworks(is_go_to_new_chapter); break;
     case CHAPTER_PORTAL: portal(is_go_to_new_chapter); break;
+    case CHAPTER_CHRISTMAS: generic_blink(is_go_to_new_chapter,3); break;
     default: error(is_go_to_new_chapter); break;//any unpopulated (no case statement) chapters are replaced with error display.  Add a chapter_id++; here to hto fix the issue
   }
-  strip.show();
-  //is_done |= check user input
-  if(is_done)
-  {
-    chapter_id=(chapter_id+1)%(LAST_CHAPTER+1);
-    is_go_to_new_chapter=true;
-  }else is_go_to_new_chapter=false;
-  if(millis()<timestamp_ms) timestamp_ms=0;//brute force fix to remedy 50 day wrap around...
+  updateChapter(is_booted);
 }
 
 // ---- Helper Methods ----
+//given pixel ID, get the corresponding row within the display matrix
 byte getRow(byte iter)
 {
   return iter/LED_COLS;
@@ -108,12 +125,163 @@ byte getCol(byte iter)
   return (getRow(iter)%2) ? (LED_COLS-(iter%LED_COLS)-1) : (iter%LED_COLS);//counting reverses row-to-row
 }
 
+// ---- Chapter Navigation, User IO ----
+//while user input, display red/green depending on strength of user input
+//if more than X seconds of contiguous input, then change +- chapter
+void updateChapter(bool is_booted)
+{
+  book_frame_number++;//update frame counter every frame
+  byte chapter_delta=updateMagnet();
+  displayMagnet();
+  updateBrightness();
+  strip.show();
+  //is_done |= check user input
+  if(is_booted)
+  {
+    chapter_id=getBootChapter();//++;
+    is_go_to_new_chapter=true;
+  }
+  else if(chapter_delta!=0)//if user input, then inc/dec chapter index
+  {
+    if(chapter_id==0 && chapter_delta==255) chapter_id=LAST_CHAPTER;
+    else{
+      chapter_id+=chapter_delta;
+      chapter_id%=LAST_CHAPTER+1;//break into two lines - note compiler may alter order of operations?
+    }
+    is_go_to_new_chapter=true;
+    setBootChapter(chapter_id);
+  }else is_go_to_new_chapter=false;
+  if(millis()<chapter_timestamp_ms) chapter_timestamp_ms=0;//brute force fix to remedy 50 day wrap around...
+}
+
+bool isBooting()
+{
+  return chapter_id==CHAPTER_ERROR || chapter_id==CHAPTER_STRIP_TEST;
+}
+
+//allow for user input on brightness
+void updateBrightness()
+{//getBrightness already declared in neoPixel library
+  byte brightness_setting=getInputBrightness();
+  //displayDebug(brightness_setting/4);
+  //displayDebug(chapter_id);
+  //displayDebug(getBootChapter());
+  strip.setBrightness(brightness_setting);
+}
+
+byte getInputBrightness()
+{
+  //pre-empteively fill analog readings so an average can be taken later when out of boot mode
+  brightness_measurements[brightness_index]=1024-analogRead(PIN_BRIGHTNESS);//10 bit reading - prefer CW to increase brightness
+  brightness_index++;
+  brightness_index%=ANALOG_AVERAGE;
+  if(isBooting())
+    return DEFAULT_BRIGHTNESS;//static setting during boot
+  //allow for more complicated user IO once out of boot
+  long brightness_setting=0;
+  for(byte iter=0;iter<ANALOG_AVERAGE;iter++)
+  {
+    brightness_setting+=brightness_measurements[brightness_index];
+  }
+  brightness_setting>>=2;//convert square of 10-bit values to 8-bit value
+  brightness_setting/=ANALOG_AVERAGE;//convert sum to average by dividing by number of samples
+  brightness_setting=brightness_setting*brightness_setting;//square brightness is approximation of user logarithmic perception
+  brightness_setting>>=8;//re-scale to 8-bit range "square root"
+  
+  brightness_setting=max(MIN_BRIGHTNESS,brightness_setting);
+  brightness_setting=min(MAX_BRIGHTNESS,brightness_setting);
+  return brightness_setting;
+}
+
+//call once on boot
+void setupMagnet()
+{
+  magnetic_average=0;
+  for(byte iter=0;iter<ANALOG_AVERAGE;iter++) magnetic_average+=analogRead(PIN_MAGNET);
+  magnetic_average/=ANALOG_AVERAGE;
+}
+
+byte displayMagnet()
+{
+  if(magnet_previous_state==0) return;//no visualization if no change in state
+  for(byte iter=0;iter<LED_COUNT;iter++)
+  {
+    byte row=getRow(iter);
+    byte col=getCol(iter);
+    bool is_red=magnet_previous_state>128;
+    if(col<(LED_COLS/4))
+    {
+      if(row<(LED_ROWS/2))
+      {
+        //if(col<(LED_COLS/4)*
+        float threshold=(millis()-magnet_timestamp_ms)/(1.0*MAGNET_STATE_CHANGE_MS);
+        threshold=(0+(LED_COLS/4))*threshold;
+        if(col<threshold && !is_red) strip.setPixelColor(iter,strip.Color(0,255,0,0));
+        else if(((LED_COLS/4)-col)>threshold && is_red) strip.setPixelColor(iter,strip.Color(255,0,0,0));
+        else strip.setPixelColor(iter,strip.Color(0,0,0,0));
+      }else
+        strip.setPixelColor(iter,strip.Color(is_red?255:0,is_red?0:255,0,0));
+    }
+  }
+}
+
+//1 for ++ chapter, 255 for -- chapter
+byte updateMagnet()
+{
+  if(isBooting()) return;
+  byte next_state=0;
+  if((analogRead(PIN_MAGNET)-magnetic_average)>MAGNET_THRESHOLD) next_state=1;
+  if((magnetic_average-analogRead(PIN_MAGNET))>MAGNET_THRESHOLD) next_state=255;
+  if(next_state!=magnet_previous_state)
+  {
+    magnet_previous_state=next_state;
+    magnet_timestamp_ms=millis();//start timer ticking
+  }
+  unsigned long delta_ms=millis()-magnet_timestamp_ms;
+  if(delta_ms>(1<<12)) delta_ms=0;//assume user input<1 hour, ignore errors when millis() wraps over
+  if(delta_ms>MAGNET_STATE_CHANGE_MS)
+  {
+    magnet_timestamp_ms=millis();
+    magnet_previous_state=0;//set state back to default
+    return next_state;
+  }
+  return 0;//no state change
+}
+
+//after power cycle, return the device to the last commanded chapter
+byte getBootChapter()
+{
+  byte boot_chapter=EEPROM.read(BOOT_CHAPTER_EEPROM_ADDRESS);
+  if(boot_chapter==CHAPTER_STRIP_TEST) return 0;
+  boot_chapter%=(LAST_CHAPTER+1);//ensure selected boot chapter is within range of permissable chapters
+  return boot_chapter;
+}
+
+//each time the user changes the chapter, save state to be fetched at next boot
+void setBootChapter(byte boot_chapter)
+{
+  delay(100);//debug safety check to avoid high speed IO to EEPROM (limited write cycles)
+  if(boot_chapter<=LAST_CHAPTER)//only save valid chapters - skip boot and error cases
+    EEPROM.write(BOOT_CHAPTER_EEPROM_ADDRESS,boot_chapter);
+}
+
+void displayDebug(byte val)
+{
+  for(byte iter=0;iter<LED_COUNT;iter++)
+  {
+    bool is_green=iter<val;
+    bool is_red=!is_green;
+    strip.setPixelColor(iter, strip.Color(is_red?255:0,is_green?255:0,0,0));
+  }
+  strip.show();
+}
+
 // ---- Animations ----
 //boot-up animation to allow the user to verify the proper operation of all LEDs
 //red, green, blue, white flash on all LEDs
 bool strip_test(bool is_new_chapter)
 {
-  byte led_color=(millis()-timestamp_ms)/512;//change color every x milliseoncds
+  byte led_color=(millis()-chapter_timestamp_ms)/512;//change color every x milliseoncds
   if(led_color>=4) return true;
   strip.fill(strip.Color(led_color==0?255:0,
                          led_color==1?255:0,
@@ -126,7 +294,7 @@ bool strip_test(bool is_new_chapter)
 void monochrome(bool is_new_chapter)
 {
   //strip.fill(strip.Color(millis()%8,0,millis()%8),0,LED_COUNT);
-  strip.fill(strip.gamma32(strip.Color(0,105,176)),0,LED_COUNT);
+  strip.fill(strip.gamma32(strip.Color(0,105,176,0)),0,LED_COUNT);
   //strip.fill(strip.Color(0,105,176),0,LED_COUNT);
 }
 
@@ -134,12 +302,16 @@ void monochrome(bool is_new_chapter)
 void error(bool is_new_chapter)
 {
   for(byte iter=0;iter<LED_COUNT;iter++)
-  {//left to right quarters of display: red, green, blue, white
+  {//left to right quarters of display: white, red, green, blue
     byte col=getCol(iter);
-    bool is_red=col<(LED_COLS/4);
+    /*bool is_red=col<(LED_COLS/4);
     bool is_green=!is_red && (col<(LED_COLS/2));
     bool is_blue= !is_red && !is_green && (col<(3*(LED_COLS/4)));
-    bool is_white=!is_red && !is_green && !is_blue;
+    bool is_white=!is_red && !is_green && !is_blue;*/
+    bool is_white=col<(LED_COLS/4);
+    bool is_red=  !is_white && (col<(LED_COLS/2));
+    bool is_green=!is_white && !is_red && (col<(3*(LED_COLS/4)));
+    bool is_blue= !is_white && !is_red && !is_green;
     strip.setPixelColor(iter, strip.Color(is_red?255:0,
                                           is_green?255:0,
                                           is_blue?255:0,
@@ -150,7 +322,7 @@ void error(bool is_new_chapter)
 //all LEDs cycle smoothly though the rainbow  red --> green --> blue
 void rainbow(bool is_new_chapter)
 {
-  uint16_t hue=millis()*8;//set higher multiplication to cycle LEDs faster.  *16 is cycling full rainbow every ~8 seconds
+  uint16_t hue=millis();//*8;//set higher multiplication to cycle LEDs faster.  *16 is cycling full rainbow every ~8 seconds
   uint8_t  sat = 255;
   uint8_t  val = 255 ;
   strip.fill(strip.gamma32(strip.ColorHSV(hue, sat, val)),0,LED_COUNT);
@@ -245,15 +417,42 @@ void flag_american(bool is_new_chapter)
   {
     byte row=getRow(iter);//iter/LED_COLS;
     byte col=getCol(iter);//iter%LED_COLS;
+    /*const int period_ms_1=(1<<14)+(1<<7);
+    const float period_col_1=LED_COLS;
+    float wave_1=sin(-(millis()*2*PI/(period_ms_1*1.0)) + (col*2*PI/period_col_1));
+    const int period_ms_2=1<<12;
+    const float period_col_2=LED_COLS/2;
+    float wave_2=sin(-(millis()*2*PI/(period_ms_2*1.0)) + (col*2*PI/period_col_2));
+    float wave_sum=wave_1*.4+wave_2*.15+.6;
+    wave_sum=min(wave_sum,1.0);
+    wave_sum=max(wave_sum,0.0);*/
     if(row<(LED_COLS/2) && col<(LED_COLS/2))
     {//top left blue
-      strip.setPixelColor(iter, strip.Color(0,0,255,0));
-    }else if(row%2==1){//red stripe
-      strip.setPixelColor(iter, strip.Color(255,0,0,0));
+      strip.setPixelColor(iter, strip.Color(0,40,104,0));//random twinkle
+    }else if(row%2==0){//red stripe
+      strip.setPixelColor(iter, strip.Color(191,0,48,0));//random twinkle
     }else{//white stripe
-      strip.setPixelColor(iter, strip.Color(0,0,0,255));
-      if(!random(100)) strip.setPixelColor(iter, strip.Color(255,255,255,255));//random twinkle
+      strip.setPixelColor(iter, strip.Color(0,0,0,255));//random twinkle
     }
+    /*if(row<(LED_COLS/2) && col<(LED_COLS/2))
+    {//top left blue
+      strip.setPixelColor(iter, strip.Color(0,wave_sum*40,wave_sum*104,0));//random twinkle
+    }else if(row%2==0){//red stripe
+      strip.setPixelColor(iter, strip.Color(wave_sum*191,0,wave_sum*48,0));//random twinkle
+    }else{//white stripe
+      strip.setPixelColor(iter, strip.Color(0,0,0,wave_sum*255));//random twinkle
+    }*/
+    /*if(row<(LED_COLS/2) && col<(LED_COLS/2))
+    {//top left blue
+      strip.setPixelColor(iter, strip.Color(0,30,78,0));
+      if(!random(100)) strip.setPixelColor(iter, strip.Color(0,40,104,0));//random twinkle
+    }else if(row%2==0){//red stripe
+      strip.setPixelColor(iter, strip.Color(136,0,29,0));
+      if(!random(100)) strip.setPixelColor(iter, strip.Color(191,0,48,0));//random twinkle
+    }else{//white stripe
+      strip.setPixelColor(iter, strip.Color(0,0,0,191));
+      if(!random(100)) strip.setPixelColor(iter, strip.Color(0,0,0,255));//random twinkle
+    }*/
   }
 }
 
@@ -279,7 +478,7 @@ void fireworks(bool is_new_chapter)
   //every 2^16 iterations of 
   byte FRAME_RATE_DIVISOR=16;//ms between frames
   unsigned long new_state=millis()/FRAME_RATE_DIVISOR;
-  unsigned long old_state=timestamp_ms/FRAME_RATE_DIVISOR;
+  unsigned long old_state=chapter_timestamp_ms/FRAME_RATE_DIVISOR;
   boolean is_update_state=(new_state!=old_state) || is_new_chapter;//if rendering an existing frame, skip the render
   //randomSeed(millis()/FRAME_RATE_DIVISOR);//rather than using a delay statement, allow frames to be generated identially if they occur within multiples of FRAME_RATE_DIVISOR
   for(byte iter=0;iter<LED_COUNT;iter++)
@@ -296,7 +495,7 @@ void fireworks(bool is_new_chapter)
     }
     strip.setPixelColor(iter, get_firework_color(led_state[row][col],FRAME_RATE_DIVISOR));
   }
-  if(is_update_state) timestamp_ms=millis();
+  if(is_update_state) chapter_timestamp_ms=millis();
   //strip.fill(strip.Color(0,255,255,0),0,LED_COUNT);
 }
 
@@ -356,7 +555,9 @@ void portal(bool is_new_chapter)
       strip.setPixelColor(iter, color_right);
   }
 }
- 
+
+//consider 16 snakes (color coded), each snake section has 16 states of brightness
+//bug: tendz to double-back over itself when heading west
 //a linear sequence of illuminated pixels moves around a dim white play area
 //https://www.youtube.com/watch?v=yzFrApQ-cB4
 //note: system dynamic with a short and wide playfield where snake cannot cross own tail is to predominantly head east/west
@@ -364,7 +565,7 @@ void snake(bool is_new_chapter)
 {
   byte FRAME_RATE_DIVISOR=8;//ms between frames
   unsigned long new_state=millis()/FRAME_RATE_DIVISOR;
-  unsigned long old_state=timestamp_ms/FRAME_RATE_DIVISOR;
+  unsigned long old_state=chapter_timestamp_ms/FRAME_RATE_DIVISOR;
   boolean is_update_state=(new_state!=old_state) || is_new_chapter;
   for(byte iter=0;iter<LED_COUNT;iter++)
   {
@@ -391,7 +592,7 @@ void snake(bool is_new_chapter)
     }
     strip.setPixelColor(iter,get_snake_color(led_state[row][col],FRAME_RATE_DIVISOR));
   }
-  if(is_update_state) timestamp_ms=millis();
+  if(is_update_state) chapter_timestamp_ms=millis();
 }
 
 //rules:
@@ -475,7 +676,7 @@ void inteference(bool is_new_chapter)
 
 //"The Matrix" green text falling down
 //https://www.youtube.com/watch?v=kqUR3KtWbTk
-void matrix_rain(bool is_new_chapter)
+void matrix_rain(bool is_new_chapter,unsigned long frame_number)
 {
   for(byte iter=0;iter<LED_COUNT;iter++)
   {
@@ -486,20 +687,20 @@ void matrix_rain(bool is_new_chapter)
       if(row==0)
         led_state[row][col]=random(0,255);//random start state on top row
       else
-        led_state[row][col]=led_state[row-1][col]-1;//rows below are just one step before previous row
+        led_state[row][col]=led_state[row-1][col]-8;//rows below are just one step before previous row
     }
-    strip.setPixelColor(iter,matrix_rain_state(led_state[row][col]++));
+    strip.setPixelColor(iter,matrix_rain_state(led_state[row][col]+=(frame_number%4==0?1:0)));
   }
 }
 
 //given an LED state, return a color
 uint32_t matrix_rain_state(byte state)
 {
-  const byte FLASH_START=1;
-  const byte TAIL_START=80;
-  const byte TAIL_END=120;
+  const byte FLASH_START=3;
+  const byte TAIL_START=60;
+  const byte TAIL_END=90;
   if(state<FLASH_START) return strip.Color(255,255,255,255);//white is leading edge of rain state
-  if(state<TAIL_START) return strip.Color(0,255-random(0,150),0,0);//standard green tail
+  if(state<TAIL_START) return strip.Color(0,255,0,0);//standard green tail
   if(state<TAIL_END) return strip.Color(0,255-(byte)(255.0*(float)(state-TAIL_START)/(float)(TAIL_END-TAIL_START)),0,0);
   return strip.Color(0,0,0,0);
 }
