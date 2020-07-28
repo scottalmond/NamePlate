@@ -130,3 +130,5 @@ max w/ 1/16 acry: 0.63+ above = 0.871"
 note: thumb screw head 11/64" thick BEYOND base length above
 0.75" is max length fully threaded.  next step up is 1"
 note: head diameter on thumb screw is 5/16"
+.75-1/8"+.05 back = 
+box height at 0.8".  Add 1/16" when fabricating with acrylic

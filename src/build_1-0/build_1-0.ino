@@ -50,15 +50,14 @@ const byte PIN_CONFIG_TESSELLATE=PIN_PA4;//SW4 on DIP switch
 #define CHAPTER_MONOCHROME 0
 #define CHAPTER_RAINBOW 1
 #define CHAPTER_SCATTER_BLINK 2
-#define CHAPTER_FIREWORKS 3//13
-#define CHAPTER_MATRIX_RAIN 4 //either too fast or all rows the same
+#define CHAPTER_FIREWORKS 3
+#define CHAPTER_MATRIX_RAIN 4
 #define CHAPTER_SNAKE 5 // consider refactor with multiple snake - white background washes out snake.  also see issue with snake going over its own tail
-#define CHAPTER_INTERFERENCE 6
-#define CHAPTER_FLAG_AMERICAN 7 // also flash read and blue parts - looks like unit is defective though...
-#define CHAPTER_PORTAL 8
-#define CHAPTER_WATER 9//slowly cycling and shimmering water effect 
-#define CHAPTER_NEWTON_CRADLE 10
-#define CHAPTER_CHRISTMAS 11
+#define CHAPTER_RAINBOW_RIPPLE 6
+#define CHAPTER_PORTAL 7
+#define CHAPTER_METEOR 8
+#define CHAPTER_CHRISTMAS 9
+#define CHAPTER_FLAG_AMERICAN 10
 const byte LAST_CHAPTER=CHAPTER_CHRISTMAS;//highest indexed chapter in the book
 byte chapter_id=CHAPTER_STRIP_TEST; //set to 255 to run LED check at boot, set to 0 to skip
 bool is_go_to_new_chapter=false;//private flag used for tracking state change to new chapter
@@ -102,11 +101,12 @@ void loop() {
     case CHAPTER_RAINBOW: rainbow(is_go_to_new_chapter); break;
     case CHAPTER_SCATTER_BLINK: scatter_blink(is_go_to_new_chapter); break;
     case CHAPTER_SNAKE: snake(is_go_to_new_chapter); break;
-    //case CHAPTER_INTERFERENCE: interference(is_go_to_new_chapter); break;
+    case CHAPTER_RAINBOW_RIPPLE: rainbow_ripple(is_go_to_new_chapter); break;
     case CHAPTER_MATRIX_RAIN: matrix_rain(is_go_to_new_chapter,book_frame_number); break;
     case CHAPTER_FLAG_AMERICAN: flag_american(is_go_to_new_chapter); break;
     case CHAPTER_FIREWORKS: fireworks(is_go_to_new_chapter); break;
     case CHAPTER_PORTAL: portal(is_go_to_new_chapter); break;
+    case CHAPTER_METEOR: meteor(is_go_to_new_chapter); break;
     case CHAPTER_CHRISTMAS: generic_blink(is_go_to_new_chapter,3); break;
     default: error(is_go_to_new_chapter); break;//any unpopulated (no case statement) chapters are replaced with error display.  Add a chapter_id++; here to hto fix the issue
   }
@@ -228,7 +228,8 @@ byte displayMagnet()
 //1 for ++ chapter, 255 for -- chapter
 byte updateMagnet()
 {
-  if(isBooting()) return;
+  if(isBooting()) return 0;//note: WAS return;, SHOULD HAVE BEEN return 0;
+  //was returning garbage value, messing with boot sequence and EEPROM booted chapter value
   byte next_state=0;
   if((analogRead(PIN_MAGNET)-magnetic_average)>MAGNET_THRESHOLD) next_state=1;
   if((magnetic_average-analogRead(PIN_MAGNET))>MAGNET_THRESHOLD) next_state=255;
@@ -262,7 +263,7 @@ void setBootChapter(byte boot_chapter)
 {
   delay(100);//debug safety check to avoid high speed IO to EEPROM (limited write cycles)
   if(boot_chapter<=LAST_CHAPTER)//only save valid chapters - skip boot and error cases
-    EEPROM.write(BOOT_CHAPTER_EEPROM_ADDRESS,boot_chapter);
+    EEPROM.put(BOOT_CHAPTER_EEPROM_ADDRESS,boot_chapter);
 }
 
 void displayDebug(byte val)
@@ -324,8 +325,40 @@ void rainbow(bool is_new_chapter)
 {
   uint16_t hue=millis();//*8;//set higher multiplication to cycle LEDs faster.  *16 is cycling full rainbow every ~8 seconds
   uint8_t  sat = 255;
-  uint8_t  val = 255 ;
+  uint8_t  val = 255;
   strip.fill(strip.gamma32(strip.ColorHSV(hue, sat, val)),0,LED_COUNT);
+}
+
+//inspired by:
+//  https://www.adafruit.com/product/3444 demo pattern
+//sinusoid magnitude is mapped to LED hue
+void rainbow_ripple(bool is_new_chapter)
+{
+  int phase_tms_period=8191*2;//(1<<13);
+  float phase_tms=(PI*2*(millis()%phase_tms_period))/phase_tms_period;
+  //int time_reversal_period=(1<<14)+(1<<10)+(1<<7);
+  //float time_reversal_phase=(PI*2*(millis()%time_reversal_period))/time_reversal_period;
+  int time_reversal_period_1=11633;//(1<<14);//+(1<<10);
+  int time_reversal_period_2=33529;//(1<<15);//+(1<<9);
+  float time_reversal_phase_1=(PI*2*(millis()%time_reversal_period_1))/time_reversal_period_1;
+  float time_reversal_phase_2=0.5*(PI*2*(millis()%time_reversal_period_2))/time_reversal_period_2;
+  float time_reversal_phase=(sin(time_reversal_phase_1)+sin(time_reversal_phase_2))*PI;
+  //phase_tms=sin(phase_tms)*PI;
+  int spread_period=25679;//time_reversal_period_1*2;//(1<<14)+(1<<13);
+  float spread=2*sin(PI+PI*2*(millis()%spread_period)/spread_period);
+  for(byte iter=0;iter<LED_COUNT;iter++)
+  {
+    byte row=getRow(iter);
+    byte col=getCol(iter);
+    float phase_x=(PI*2*col)/(LED_COLS*(3+spread));
+    float temp=sin(phase_x+phase_tms+time_reversal_phase);
+    //float hue_sin=(temp<0?-1:1)*temp*temp*0.5+0.5;//clip to 0-1
+    float hue_sin=sin(phase_x+phase_tms+time_reversal_phase)*0.5+0.5;//clip to 0-1
+    uint16_t hue=0xFFFF*hue_sin;
+    uint8_t  sat = 255;
+    uint8_t  val = 255;
+    strip.setPixelColor(iter,strip.gamma32(strip.ColorHSV(hue, sat, val)));
+  }
 }
 
 //illuminate LEDs for a random period of time
@@ -536,6 +569,13 @@ uint32_t rgb_to_white(uint32_t color_in)
   return strip.Color(red-min_color,green-min_color,blue-min_color,min_color+white);
 }
 */
+
+//initial white flame from left of screen proceeds to the right
+//white fades to yellow, fades to red, fades to black
+void meteor(bool is_new_chapter)
+{
+  
+}
 
 //a fire effect with opposing ends of the playfield (left/right) are opposing colors (ex. blue/orange from the game Portal) and animate like fire against one another in the middle
 void portal(bool is_new_chapter)
