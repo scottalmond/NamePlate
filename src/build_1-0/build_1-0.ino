@@ -49,27 +49,49 @@ const byte PIN_CONFIG_TESSELLATE=PIN_PA4;//SW4 on DIP switch
 #define CHAPTER_STRIP_TEST 255
 #define CHAPTER_MONOCHROME 0
 #define CHAPTER_RAINBOW 1
-#define CHAPTER_SCATTER_BLINK 2
-#define CHAPTER_FIREWORKS 3
-#define CHAPTER_MATRIX_RAIN 4
-#define CHAPTER_SNAKE 5 // consider refactor with multiple snake - white background washes out snake.  also see issue with snake going over its own tail
-#define CHAPTER_RAINBOW_RIPPLE 6
-#define CHAPTER_PORTAL 7
+#define CHAPTER_RAINBOW_RIPPLE 2
+#define CHAPTER_SCATTER_RAINBOW 3
+#define CHAPTER_SCATTER_BLINK 4
+#define CHAPTER_FIREWORKS 5
+#define CHAPTER_MATRIX_RAIN 6
+#define CHAPTER_SNAKE 7 // consider refactor with multiple snake - white background washes out snake.  also see issue with snake going over its own tail
+#define CHAPTER_PORTAL 98
 #define CHAPTER_METEOR 8
 #define CHAPTER_CHRISTMAS 9
-#define CHAPTER_FLAG_AMERICAN 10
-const byte LAST_CHAPTER=CHAPTER_CHRISTMAS;//highest indexed chapter in the book
+#define CHAPTER_FLAG_AMERICAN 10 //to do twinkling, every pixel must flicker https://www.shutterstock.com/video/clip-22198711-loopable-animation-landscape-showing-four-seasons-each
+const byte LAST_CHAPTER=CHAPTER_FLAG_AMERICAN;//highest indexed chapter in the book
 byte chapter_id=CHAPTER_STRIP_TEST; //set to 255 to run LED check at boot, set to 0 to skip
 bool is_go_to_new_chapter=false;//private flag used for tracking state change to new chapter
 unsigned long chapter_timestamp_ms=0;//used for various chapter state machines.  Note wrap over after ~50 days
 byte led_state[LED_ROWS][LED_COLS];//general-purpose state machine allocation for all chapters to share
 unsigned long book_frame_number=0;//number of iterations through the current loop
 
+//todo: future
+//balls bouncing: ref https://www.youtube.com/watch?v=VAa4duqMrgs
+//*lava lamp
+//consdier star field exploring from center https://www.youtube.com/results?search_query=1990s+screen+saver
+//consdier moving checkerboard https://www.youtube.com/watch?v=VUUJVDGda-I&feature=youtu.be&t=197
+//*consider generic fire animation https://www.youtube.com/watch?v=_KhtBA0EHDM
+//note: built in map function may be used to mix colors
+//consider swirling effect https://www.pond5.com/stock-footage/item/1103915-fractal-form-background-visuals-hd
+//x issue with brightness dimming is finite 8-bit depth https://www.shutterstock.com/video/clip-1866235-led-lights-seamless-looping-animation
+//multiple snakes could follow fixed pattern https://www.youtube.com/watch?v=iG9JrUzcgCY
+//*portal, yellow left, blue right https://www.reddit.com/r/Rainmeter/comments/h8ewx5/dual_monitor_suit_inspired_by_the_portal/
+// juxtapose with matrix rain
+//consider involved pattern https://www.enviral-design.com/led-array-3d-printed-light-diffuse-rails/
+//*debug screen (human readable?)
+//  internal voltage
+//  internal temperature
+//  time counter
+//  user input: switches, magnet (not really accessible...), brightness
+//consider snake wrap left/right but NOT up/down
+//consider snake prefer East far more than West (if west, higher prob of change)
+
 // -- Chapter --
 // - Snake - 
 byte snake_row=0;//position of head
 byte snake_col=0;
-const byte STATE_SNAKE_STEP_FORWARD=32;//when the stake body part state goes from this 0 up to this point, step the snake forward one pixel
+const byte STATE_SNAKE_STEP_FORWARD=4;//32;//when the stake body part state goes from this 0 up to this point, step the snake forward one pixel
 byte snake_dir=B00000100;//8 bit array: lowest 4 bits are previous direction MSB < North/East/South/West > LSB
 
 void setup() {
@@ -100,6 +122,7 @@ void loop() {
     case CHAPTER_MONOCHROME: monochrome(is_go_to_new_chapter); break;
     case CHAPTER_RAINBOW: rainbow(is_go_to_new_chapter); break;
     case CHAPTER_SCATTER_BLINK: scatter_blink(is_go_to_new_chapter); break;
+    case CHAPTER_SCATTER_RAINBOW: scatter_rainbow(is_go_to_new_chapter); break;
     case CHAPTER_SNAKE: snake(is_go_to_new_chapter); break;
     case CHAPTER_RAINBOW_RIPPLE: rainbow_ripple(is_go_to_new_chapter); break;
     case CHAPTER_MATRIX_RAIN: matrix_rain(is_go_to_new_chapter,book_frame_number); break;
@@ -259,7 +282,7 @@ byte getBootChapter()
 {
   byte boot_chapter=EEPROM.read(BOOT_CHAPTER_EEPROM_ADDRESS);
   if(boot_chapter==CHAPTER_STRIP_TEST) //return 0;
-return CHAPTER_METEOR;//zzstophere
+return CHAPTER_SNAKE;//zzstophere
   boot_chapter%=(LAST_CHAPTER+1);//ensure selected boot chapter is within range of permissable chapters
   return boot_chapter;
 }
@@ -364,6 +387,31 @@ void rainbow_ripple(bool is_new_chapter)
     uint8_t  sat = 255;
     uint8_t  val = 255;
     strip.setPixelColor(iter,strip.gamma32(strip.ColorHSV(hue, sat, val)));
+  }
+}
+
+//move pixels left to right while slowly changing hue across columns
+//ref https://www.kickstarter.com/projects/macetech/rgb-led-shades?ref=discovery_category
+void scatter_rainbow(bool is_new_chapter)
+{
+  for(byte iter=0;iter<LED_COUNT;iter++)
+  {
+    byte row=getRow(iter);
+    byte col=getCol(iter);
+    if(is_new_chapter) led_state[row][col]=random(255);
+    byte count_down_timer_max=32;
+    if(col==0)
+    {
+      if(!random(48) && !led_state[row][col]) led_state[row][col]=count_down_timer_max;
+    }else{
+      if(led_state[row][col-1]==1) led_state[row][col]=count_down_timer_max;
+    }
+    if(led_state[row][col]>0) led_state[row][col]--;
+    bool is_off=led_state[row][col]==0||(led_state[row][col]==count_down_timer_max && row%2==1);//<128;
+    uint16_t hue=(millis()*8)-(col<<9);//set higher multiplication factor to cycle color faster.  *16 is cycling full rainbow every ~8 seconds
+    uint8_t  sat = 255;
+    uint8_t  val = 255;
+    strip.setPixelColor(iter,is_off?0:strip.gamma32(strip.ColorHSV(hue, sat, val)));
   }
 }
 
@@ -582,9 +630,10 @@ uint32_t rgb_to_white(uint32_t color_in)
 //inner workings: contains two meteors (two timestamps of start times)
 //  one col ahead of each meteor is set to random numbers (decay rate)
 //todo: move this up to the top of the file
-const unsigned long METEOR_PERIOD_TMS=2048;//milliseconds between new meteor appearing at left of screen
-const float METEOR_MAX_DECAY_RATE=0.85;
-const float METEOR_MIN_DECAY_RATE=0.25;
+const unsigned long METEOR_PERIOD_TMS=2800;//milliseconds between new meteor appearing at left of screen
+const float METEOR_MAX_DECAY_RATE=1.35;
+const float METEOR_MIN_DECAY_RATE=0.4;
+const float METEOR_LENGTH=1.55;//PRECON: METEOR_LENGTH>METEOR_MAX_DECAY_RATE.  1.0 is width of display
 void meteor(bool is_new_chapter)
 {
   float meteor_col_1=getMeteorCol(millis());
@@ -603,7 +652,7 @@ void meteor(bool is_new_chapter)
 float getMeteorCol(unsigned long meteor_time_tms)
 {
   meteor_time_tms%=(2*METEOR_PERIOD_TMS);
-  return (LED_COLS*1.0*meteor_time_tms)/(1.0*METEOR_PERIOD_TMS);
+  return (LED_COLS*METEOR_LENGTH*meteor_time_tms)/(1.0*METEOR_PERIOD_TMS);//zzstophere
 }
 
 //return 0 if too far away from meteor, or if meteor is to the left of the curretn position
@@ -623,7 +672,7 @@ uint32_t getMeteorColor(byte led_decay_rate,byte col,float meteor_col)
   if(this_led_position<(1.0/LED_COLS)) return strip.Color(255,255,255,255);
   //if(this_led_position<(2.0/LED_COLS)) return strip.Color(0,0,0,255);
   this_led_position/=this_led_decay_rate;//normalize between 0.0 (starting state) and 1.0 (ending state)
-  uint16_t hue=(uint16_t)((this_led_position-0.15)*0xFFFF/5);//hue range from 0 (red) to yellow ~(1/6)
+  uint16_t hue=(uint16_t)((this_led_position-0.15)*0xFFFF/5.15);//hue range from 0 (red) to yellow ~(1/6)
   uint8_t  sat = 255;
   float TAIL_DECAY_RATIO=0.3;//ratio of the tail that is transitioning from 100% value to 0% value
   uint8_t  val = (this_led_position<(1-TAIL_DECAY_RATIO))?//if first portion of tail?
@@ -635,8 +684,6 @@ uint32_t getMeteorColor(byte led_decay_rate,byte col,float meteor_col)
                  (255.0*(1 - ( (this_led_position - (1-TAIL_DECAY_RATIO) ) / TAIL_DECAY_RATIO )));//else decay to zero brightness
   uint32_t tail_color=strip.gamma32(strip.ColorHSV(hue, sat, val));
   //uint32_t tail_color=strip.ColorHSV(hue, sat, val);
-  
-  
   return tail_color;//strip.Color(0,255,0,0);
 }
 
