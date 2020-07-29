@@ -201,9 +201,11 @@ void setupMagnet()
   magnetic_average/=ANALOG_AVERAGE;
 }
 
-byte displayMagnet()
+void displayMagnet()
 {
   if(magnet_previous_state==0) return;//no visualization if no change in state
+  float threshold=(millis()-magnet_timestamp_ms)/(1.0*MAGNET_STATE_CHANGE_MS);
+  threshold=(0+(LED_COLS/4))*threshold;
   for(byte iter=0;iter<LED_COUNT;iter++)
   {
     byte row=getRow(iter);
@@ -211,7 +213,9 @@ byte displayMagnet()
     bool is_red=magnet_previous_state>128;
     if(col<(LED_COLS/4))
     {
-      if(row<(LED_ROWS/2))
+      if(col>threshold) strip.setPixelColor(iter,strip.Color(is_red?255:0,is_red?0:255,0,0));
+      else strip.setPixelColor(iter,strip.Color(0,0,0,0));
+      /*if(row<(LED_ROWS/2))
       {
         //if(col<(LED_COLS/4)*
         float threshold=(millis()-magnet_timestamp_ms)/(1.0*MAGNET_STATE_CHANGE_MS);
@@ -221,6 +225,7 @@ byte displayMagnet()
         else strip.setPixelColor(iter,strip.Color(0,0,0,0));
       }else
         strip.setPixelColor(iter,strip.Color(is_red?255:0,is_red?0:255,0,0));
+      */
     }
   }
 }
@@ -253,7 +258,8 @@ byte updateMagnet()
 byte getBootChapter()
 {
   byte boot_chapter=EEPROM.read(BOOT_CHAPTER_EEPROM_ADDRESS);
-  if(boot_chapter==CHAPTER_STRIP_TEST) return 0;
+  if(boot_chapter==CHAPTER_STRIP_TEST) //return 0;
+return CHAPTER_METEOR;//zzstophere
   boot_chapter%=(LAST_CHAPTER+1);//ensure selected boot chapter is within range of permissable chapters
   return boot_chapter;
 }
@@ -571,10 +577,30 @@ uint32_t rgb_to_white(uint32_t color_in)
 */
 
 //initial white flame from left of screen proceeds to the right
-//white fades to yellow, fades to red, fades to black
+//  white fades to yellow, fades to red, fades to black.
+//  Allow for flicking of tail by each pixel have unique decay rate
+//inner workings: contains two meteors (two timestamps of start times)
+//  one col ahead of each meteor is set to random numbers (decay rate)
 void meteor(bool is_new_chapter)
 {
-  
+  const unsigned long period_meteor=2048;
+  unsigned long meteor_1=millis()%(2*period_meteor);
+  unsigned long meteor_2=(meteor_1+period_meteor)%(2*period_meteor);
+  byte meteor_col_1=(byte)((LED_COLS*1.0*meteor_1)/period_meteor);
+  byte meteor_col_2=(byte)((LED_COLS*1.0*meteor_2)/period_meteor);
+  for(byte iter=0;iter<LED_COUNT;iter++)
+  {
+    byte row=getRow(iter);//iter/LED_COLS;
+    byte col=getCol(iter);//iter%LED_COLS;
+    if(is_new_chapter || col==(meteor_col_1+1) || col==(meteor_col_2+1)) led_state[row][col]=random(255);
+    else strip.setPixelColor(iter, getMeteorColor(led_state[row][col],col));
+  }
+}
+
+uint32_t getMeteorColor(byte led_decay_rate,byte col)
+{
+  //step 1: get this LED's state
+  //step 2: get this LED's color given its state
 }
 
 //a fire effect with opposing ends of the playfield (left/right) are opposing colors (ex. blue/orange from the game Portal) and animate like fire against one another in the middle

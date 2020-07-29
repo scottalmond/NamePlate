@@ -134,3 +134,4 @@ note: head diameter on thumb screw is 5/16"
 box height at 0.8".  Add 1/16" when fabricating with acrylic
 >>> enlarge PCB holes to be close fit.  Currently too small
 allow for flipping vertically - flip flag, matrix rtain, etc
+>>> consider moving silk screen contact info to behind a hole in the back of the unit
