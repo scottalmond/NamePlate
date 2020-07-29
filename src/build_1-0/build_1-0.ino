@@ -581,26 +581,63 @@ uint32_t rgb_to_white(uint32_t color_in)
 //  Allow for flicking of tail by each pixel have unique decay rate
 //inner workings: contains two meteors (two timestamps of start times)
 //  one col ahead of each meteor is set to random numbers (decay rate)
+//todo: move this up to the top of the file
+const unsigned long METEOR_PERIOD_TMS=2048;//milliseconds between new meteor appearing at left of screen
+const float METEOR_MAX_DECAY_RATE=0.85;
+const float METEOR_MIN_DECAY_RATE=0.25;
 void meteor(bool is_new_chapter)
 {
-  const unsigned long period_meteor=2048;
-  unsigned long meteor_1=millis()%(2*period_meteor);
-  unsigned long meteor_2=(meteor_1+period_meteor)%(2*period_meteor);
-  byte meteor_col_1=(byte)((LED_COLS*1.0*meteor_1)/period_meteor);
-  byte meteor_col_2=(byte)((LED_COLS*1.0*meteor_2)/period_meteor);
+  float meteor_col_1=getMeteorCol(millis());
+  float meteor_col_2=getMeteorCol(millis()+METEOR_PERIOD_TMS);
   for(byte iter=0;iter<LED_COUNT;iter++)
   {
     byte row=getRow(iter);//iter/LED_COLS;
     byte col=getCol(iter);//iter%LED_COLS;
-    if(is_new_chapter || col==(meteor_col_1+1) || col==(meteor_col_2+1)) led_state[row][col]=random(255);
-    else strip.setPixelColor(iter, getMeteorColor(led_state[row][col],col));
+    if(is_new_chapter || col==((byte)meteor_col_1+1) || col==((byte)meteor_col_2+1)) led_state[row][col]=random(255);
+    else strip.setPixelColor(iter, getMeteorColor(led_state[row][col],col,meteor_col_1) |
+                                   getMeteorColor(led_state[row][col],col,meteor_col_2));
   }
 }
 
-uint32_t getMeteorColor(byte led_decay_rate,byte col)
+//allow for fractional column returned values so state of downstream LEDs can be determined more precisely
+float getMeteorCol(unsigned long meteor_time_tms)
 {
-  //step 1: get this LED's state
+  meteor_time_tms%=(2*METEOR_PERIOD_TMS);
+  return (LED_COLS*1.0*meteor_time_tms)/(1.0*METEOR_PERIOD_TMS);
+}
+
+//return 0 if too far away from meteor, or if meteor is to the left of the curretn position
+//  that way, this helper method can be called twice (for each meteor) and the results OR'd together
+uint32_t getMeteorColor(byte led_decay_rate,byte col,float meteor_col)
+{
+  //step 1: get this LED's state give the position of the meteors, this led's position, and led decay rate
   //step 2: get this LED's color given its state
+  if(col>meteor_col) return 0;
+  //now: col<=meteor_col
+  float this_led_decay_rate=((led_decay_rate*1.0)/255.0)*
+    (METEOR_MAX_DECAY_RATE-METEOR_MIN_DECAY_RATE)+METEOR_MIN_DECAY_RATE;
+  //ratio of the distance between meteors (defined to be 1.0) during which the pixel becomes fully extinguished
+  float this_led_position=(meteor_col-col)/LED_COLS;
+  if(this_led_position>this_led_decay_rate) return 0;//too far away and is therefore OFF
+  //now: this_led_position is between 0 and <this_led_decay_rate>
+  if(this_led_position<(1.0/LED_COLS)) return strip.Color(255,255,255,255);
+  //if(this_led_position<(2.0/LED_COLS)) return strip.Color(0,0,0,255);
+  this_led_position/=this_led_decay_rate;//normalize between 0.0 (starting state) and 1.0 (ending state)
+  uint16_t hue=(uint16_t)((this_led_position-0.15)*0xFFFF/5);//hue range from 0 (red) to yellow ~(1/6)
+  uint8_t  sat = 255;
+  float TAIL_DECAY_RATIO=0.3;//ratio of the tail that is transitioning from 100% value to 0% value
+  uint8_t  val = (this_led_position<(1-TAIL_DECAY_RATIO))?//if first portion of tail?
+                  255://full brightness
+                  //0.81 --> ~0.95
+                  //0.99 --> ~0.05
+                  //1 - (0.81-(1-0.2))/0.2
+                 //(255.0*((1-this_led_position-TAIL_DECAY_RATIO)/(1-TAIL_DECAY_RATIO));//else decay to zero brightness
+                 (255.0*(1 - ( (this_led_position - (1-TAIL_DECAY_RATIO) ) / TAIL_DECAY_RATIO )));//else decay to zero brightness
+  uint32_t tail_color=strip.gamma32(strip.ColorHSV(hue, sat, val));
+  //uint32_t tail_color=strip.ColorHSV(hue, sat, val);
+  
+  
+  return tail_color;//strip.Color(0,255,0,0);
 }
 
 //a fire effect with opposing ends of the playfield (left/right) are opposing colors (ex. blue/orange from the game Portal) and animate like fire against one another in the middle
