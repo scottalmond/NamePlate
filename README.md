@@ -132,3 +132,5 @@ note: thumb screw head 11/64" thick BEYOND base length above
 note: head diameter on thumb screw is 5/16"
 .75-1/8"+.05 back = 
 box height at 0.8".  Add 1/16" when fabricating with acrylic
+>>> enlarge PCB holes to be close fit.  Currently too small
+allow for flipping vertically - flip flag, matrix rtain, etc
