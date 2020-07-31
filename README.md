@@ -137,8 +137,8 @@ allow for flipping vertically - flip flag, matrix rtain, etc
 >>> consider moving silk screen contact info to behind a hole in the back of the unit
 v1-0 --> v1-1 case:
 50 mil WAS --> 100 mil IS margin inside pcb-to-case
-50 mil WAS --> 200 mil IS wall thickness
+50 mil WAS --> 150 mil IS wall thickness
 WAS circle vent holes --> IS diamond vent holes
 WAS 4x PCB holders, IS 2x PCB holders in the center
 WAS NO chamfer inside unit --> IS chamfer around inner edge to provide wall support
-add usb port
+WAS NO USB port --> IS USB PORT
