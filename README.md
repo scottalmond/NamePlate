@@ -138,7 +138,12 @@ allow for flipping vertically - flip flag, matrix rtain, etc
 v1-0 --> v1-1 case:
 50 mil WAS --> 100 mil IS margin inside pcb-to-case
 50 mil WAS --> 150 mil IS wall thickness
-WAS circle vent holes --> IS diamond vent holes
+WAS circle vent holes --> IS diamond vent holes --> will turn off supports
 WAS 4x PCB holders, IS 2x PCB holders in the center
 WAS NO chamfer inside unit --> IS chamfer around inner edge to provide wall support
-WAS NO USB port --> IS USB PORT
+WAS 4x faceplate holders --> IS NO facaeplate holders
+WAS NO USB port --> IS USB PORT --> need dimensions of usb plug, and concern with unsupported 3d print
+micro usb header metal = 0.07", 0.2" from opposing side of usb to verrtical case edge, 0.31" total
+0.27" wide, 0.35" from opposing edge to case, 0.43" total
+kicad center hole at 3.8" Y, 4.083" for microUSB port center
+microUSB center 1.2 mm above surface of PCB
