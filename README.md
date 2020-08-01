@@ -147,3 +147,4 @@ micro usb header metal = 0.07", 0.2" from opposing side of usb to verrtical case
 0.27" wide, 0.35" from opposing edge to case, 0.43" total
 kicad center hole at 3.8" Y, 4.083" for microUSB port center
 microUSB center 1.2 mm above surface of PCB
+consider first boot (all 1's in EEPROM) to debug chaper.  First user input to change EEPROM exits hidden chapter
