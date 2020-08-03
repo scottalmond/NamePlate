@@ -148,3 +148,16 @@ micro usb header metal = 0.07", 0.2" from opposing side of usb to verrtical case
 kicad center hole at 3.8" Y, 4.083" for microUSB port center
 microUSB center 1.2 mm above surface of PCB
 consider first boot (all 1's in EEPROM) to debug chaper.  First user input to change EEPROM exits hidden chapter
+*** consider screw slots due to 3d print contraction
+current draw?
+leakage through usb port?
+*** add lip to top edge to hide cut paper
+consider standoffs (3d print?)
+wasn't thinking about plastic contraction between ~10" separated holes
+didn't think about light leakage through walls of solid plastic
+note: the link from this pcb to others on the top/bottom has led pads very clodse to the power/ground rails
+note: grips to hold pcb in place are non-effective (pcb too thin?)
+consider pcb design features that allow for 2x rows of LEDs, NOT 4
+didn't realize how short the final letts would be
+debug screen: voltage, build #
+1.8A at full brightness in full-screen mode (green colors)
