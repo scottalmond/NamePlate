@@ -11,6 +11,7 @@
 #include <EEPROM.h>
 
 // -- Top Level IO --
+const bool SKIP_BOOT=true; //if skip boot, then jump straight to first shapter without strip test
 const byte PIN_LED=PIN_PA7;//D1 is physical pin 6
 const byte LED_ROWS=4;
 const byte LED_COLS=24;
@@ -54,11 +55,12 @@ const byte PIN_CONFIG_TESSELLATE=PIN_PA4;//SW4 on DIP switch
 #define CHAPTER_SCATTER_BLINK 4
 #define CHAPTER_FIREWORKS 5
 #define CHAPTER_MATRIX_RAIN 6
-#define CHAPTER_SNAKE 7 // consider refactor with multiple snake - white background washes out snake.  also see issue with snake going over its own tail
-#define CHAPTER_PORTAL 98
-#define CHAPTER_METEOR 8
-#define CHAPTER_CHRISTMAS 9
-#define CHAPTER_FLAG_AMERICAN 10 //to do twinkling, every pixel must flicker https://www.shutterstock.com/video/clip-22198711-loopable-animation-landscape-showing-four-seasons-each
+#define CHAPTER_LIFE 7
+#define CHAPTER_SNAKE 8 // consider refactor with multiple snake - white background washes out snake.  also see issue with snake going over its own tail
+#define CHAPTER_PORTAL 99
+#define CHAPTER_METEOR 9
+#define CHAPTER_CHRISTMAS 10
+#define CHAPTER_FLAG_AMERICAN 11 //to do twinkling, every pixel must flicker https://www.shutterstock.com/video/clip-22198711-loopable-animation-landscape-showing-four-seasons-each
 const byte LAST_CHAPTER=CHAPTER_FLAG_AMERICAN;//highest indexed chapter in the book
 byte chapter_id=CHAPTER_STRIP_TEST; //set to 255 to run LED check at boot, set to 0 to skip
 bool is_go_to_new_chapter=false;//private flag used for tracking state change to new chapter
@@ -101,10 +103,10 @@ void setup() {
   pinMode(PIN_CONFIG_UPDATE_DAILY,INPUT_PULLUP);
   pinMode(PIN_CONFIG_DIAGNOSTIC,INPUT_PULLUP);
   pinMode(PIN_CONFIG_TESSELLATE,INPUT_PULLUP);
-  strip.begin();
-  strip.setBrightness(DEFAULT_BRIGHTNESS);
-  strip.clear();
-  strip.show();
+  //strip.begin();
+  //strip.setBrightness(DEFAULT_BRIGHTNESS);
+  //strip.clear();
+  //strip.show();
   chapter_timestamp_ms=millis();
   setupMagnet();
   setupMagnet();//second run to allow analog to settle after LED write (not sure if value-added, but is quick to execute)
@@ -129,6 +131,7 @@ void loop() {
     case CHAPTER_FLAG_AMERICAN: flag_american(is_go_to_new_chapter); break;
     case CHAPTER_FIREWORKS: fireworks(is_go_to_new_chapter); break;
     case CHAPTER_PORTAL: portal(is_go_to_new_chapter); break;
+    case CHAPTER_LIFE: life(is_go_to_new_chapter); break;
     case CHAPTER_METEOR: meteor(is_go_to_new_chapter); break;
     case CHAPTER_CHRISTMAS: generic_blink(is_go_to_new_chapter,3); break;
     default: error(is_go_to_new_chapter); break;//any unpopulated (no case statement) chapters are replaced with error display.  Add a chapter_id++; here to hto fix the issue
@@ -281,8 +284,8 @@ byte updateMagnet()
 byte getBootChapter()
 {
   byte boot_chapter=EEPROM.read(BOOT_CHAPTER_EEPROM_ADDRESS);
-  if(boot_chapter==CHAPTER_STRIP_TEST) //return 0;
-return CHAPTER_SNAKE;//zzstophere
+  if(boot_chapter==CHAPTER_STRIP_TEST) return 0;
+//return CHAPTER_LIFE;//zzstophere
   boot_chapter%=(LAST_CHAPTER+1);//ensure selected boot chapter is within range of permissable chapters
   return boot_chapter;
 }
@@ -312,7 +315,7 @@ void displayDebug(byte val)
 bool strip_test(bool is_new_chapter)
 {
   byte led_color=(millis()-chapter_timestamp_ms)/512;//change color every x milliseoncds
-  if(led_color>=4) return true;
+  if(led_color>=4 || SKIP_BOOT) return true;
   strip.fill(strip.Color(led_color==0?255:0,
                          led_color==1?255:0,
                          led_color==2?255:0,
@@ -693,17 +696,77 @@ void portal(bool is_new_chapter)
   uint32_t color_left=strip.Color(255,0,0,0);
   uint32_t color_right=strip.Color(0,255,0,0);
   uint32_t color_background=strip.Color(255,255,255,0);
+  float top_left=(sin(2*PI*(millis()/4001.0 + sin(millis()/3449.0) + sin(millis()/2777.0)))*.5+.5)*(LED_COLS*0.3);
   for(byte iter=0;iter<LED_COUNT;iter++)
   {
+    strip.setPixelColor(iter,color_background);
     byte row=getRow(iter);//iter/LED_COLS;
     byte col=getCol(iter);//iter%LED_COLS;
-    if(col<(LED_COLS/3))
+
+    if(col<top_left)
+      strip.setPixelColor(iter, color_left);
+      
+    /*if(col<(LED_COLS/3))
       strip.setPixelColor(iter, color_left);
     else if((col/2)<(LED_COLS/3))
       strip.setPixelColor(iter, color_background);
     else
-      strip.setPixelColor(iter, color_right);
+      strip.setPixelColor(iter, color_right);*/
   }
+}
+
+float LIFE_SIZE=1.5;
+float LIFE_VISIBILITY=5.0;//range that life can see pellets
+float life_pos_row=LED_ROWS/2.0;
+float life_pos_col=LED_COLS/2.0;
+float life_vel_row=0.0;
+float life_vel_col=0.0;
+float LIFE_MAX_VEL_ROW=0.05;
+float LIFE_MAX_VEL_COL=0.1;
+float acc=0.004;//amount velocity is changed each frame
+double life_hunger_row=0.0;
+double life_hunger_col=0.0;
+const byte LIFE_EAT_AMOUNT=15;
+void life(bool is_new_chapter)
+{//consider refactor with 2 lives running around eating pellets
+  life_hunger_row=0.0;
+  life_hunger_col=0.0;
+  for(byte iter=0;iter<LED_COUNT;iter++)
+  {
+    byte row=getRow(iter);
+    byte col=getCol(iter);
+    if(is_new_chapter) led_state[row][col]=0;//reset pellets to OFF
+    if(led_state[row][col]!=0 && led_state[row][col]!=255) led_state[row][col]++;//0 randomly starts, 255 is max, so skip these cases
+    if(!random(700) && led_state[row][col]==0) led_state[row][col]++;//start growth of pixel
+    double dist2_row=sq(row-life_pos_row);
+    double dist2_col=sq(col-life_pos_col);
+    double dist2=dist2_row + dist2_col;
+    if(dist2<sq(LIFE_SIZE))
+      led_state[row][col]=led_state[row][col]<LIFE_EAT_AMOUNT?
+                          0://eat whole pellet
+                          (led_state[row][col]-LIFE_EAT_AMOUNT);//eat partial pellet
+    double hunger=sq(led_state[row][col]*1.0);
+    if(dist2<sq(LIFE_VISIBILITY))
+    {//only update hunger target if visible
+      if(dist2_row>LIFE_SIZE) life_hunger_row+=((row<life_pos_row)?-1:1)*sq(hunger/dist2_row);
+      if(dist2_col>LIFE_SIZE) life_hunger_col+=((col<life_pos_col)?-1:1)*sq(hunger/dist2_col);
+      //need dead zone in center, otherwise end up with life stuck in corner
+    }
+    strip.setPixelColor(iter,strip.Color((dist2<sq(LIFE_SIZE))?255:0,0,led_state[row][col],0));
+  }
+  //move toward nearest and desnset food supply
+  life_vel_row+=((life_hunger_row<0)?-1:1)*acc;
+  life_vel_col+=((life_hunger_col<0)?-1:1)*acc;
+  life_vel_row=min(max(life_vel_row,-LIFE_MAX_VEL_ROW),LIFE_MAX_VEL_ROW);//clip speed to max
+  life_vel_col=min(max(life_vel_col,-LIFE_MAX_VEL_COL),LIFE_MAX_VEL_COL);
+  life_pos_row+=life_vel_row;//update position
+  life_pos_col+=life_vel_col;
+  
+  //keep life within play field:
+  if(life_pos_row<0){ life_pos_row=0; life_vel_row=max(0,life_vel_row); }
+  if(life_pos_col<0){ life_pos_col=0; life_vel_col=max(0,life_vel_col); }
+  if(life_pos_row>=(LED_ROWS-1)){ life_pos_row=LED_ROWS-1; life_vel_row=min(0,life_vel_row); }
+  if(life_pos_col>=(LED_COLS-1)){ life_pos_col=LED_COLS-1; life_vel_col=min(0,life_vel_col); }
 }
 
 //consider 16 snakes (color coded), each snake section has 16 states of brightness
